@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>쌈뽕 공룡 러너 🦖 (완전 리셋 저퀄)</title>
+<style>
+  html,body{height:100%;margin:0;font-family:Arial,sans-serif;background:#1b2b36;color:#fff;display:flex;align-items:center;justify-content:center}
+  .wrap{width:920px;max-width:95%;background:#0b2430;border-radius:8px;padding:12px;box-shadow:0 8px 20px rgba(0,0,0,0.5)}
+  header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:14px}
+  #canvas{background:#1b2b36;display:block;width:100%;border:3px solid #0b2430;border-radius:6px}
+  .controls{display:flex;gap:8px;margin-top:10px;justify-content:flex-start;align-items:center}
+  .btn{background:#ffd166;color:#102029;padding:6px 10px;border-radius:6px;border:none;cursor:pointer;font-weight:700}
+  .small{background:transparent;border:1px solid #0b2430;padding:4px 6px;border-radius:4px;color:#fff}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>쌈뽕 공룡 러너 🦖</div>
+    <div>점수: <strong id="score">0</strong> | 최고: <strong id="best">0</strong></div>
+  </header>
+
+  <canvas id="canvas" width="920" height="360"></canvas>
+
+  <div class="controls">
+    <button id="startBtn" class="btn">게임 시작</button>
+    <button id="pauseBtn" class="small">일시정지</button>
+  </div>
+</div>
+    <div class="btn">
+      <a href="index.html">
+        <p>홈으로 가기</p>
+      </a>
+    </div>
+
+<script>
+(() => {
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+
+  const scoreEl = document.getElementById('score');
+  const bestEl = document.getElementById('best');
+  const startBtn = document.getElementById('startBtn');
+  const pauseBtn = document.getElementById('pauseBtn');
+
+  let running=false, paused=false;
+  let score=0, best=Number(localStorage.getItem('dino_best')||0);
+  bestEl.textContent = best;
+
+  const dino = { x:80, y:H-60, w:40, h:40, vy:0, gravity:0.6, jumpPower:-16, grounded:true };
+  let obstacles=[], obstacleTimer=0, baseSpawnInterval=90, gameSpeed=2, speedIncreaseTimer=0;
+  let loopId = null; // 루프 ID 저장
+
+  function jump(){ if(!running||paused) return; if(dino.grounded){ dino.vy=dino.jumpPower; dino.grounded=false; } }
+
+  window.addEventListener('keydown', e=>{ if(e.code==='Space'||e.code==='ArrowUp'){ e.preventDefault(); jump(); } });
+  window.addEventListener('touchstart', e=>{ e.preventDefault(); jump(); });
+  canvas.addEventListener('mousedown', jump);
+
+  function spawnObstacle(){
+    // 띠엄띠엄 생성: 30% 확률로 장애물 생성
+    if(Math.random() < 0.7) return;
+    let type=Math.random()<0.2?'flying':'small';
+    let h = type==='flying'?20:30;
+    let y = type==='flying'?H-140:H-30-h;
+    obstacles.push({ x: W+20, y, w: 20, h, vx: -gameSpeed });
+  }
+
+  function resetGame(){
+    // 모든 상태 초기화
+    obstacles=[]; 
+    score=0; 
+    gameSpeed=2; 
+    obstacleTimer=0; 
+    speedIncreaseTimer=0;
+    dino.x=80; dino.y=H-60; dino.vy=0; dino.grounded=true;
+    running=true; paused=false;
+    scoreEl.textContent=score;
+
+    // 기존 루프가 남아있으면 취소
+    if(loopId) cancelAnimationFrame(loopId);
+    loopId = requestAnimationFrame(loop);
+  }
+
+  function update(){
+    if(!running||paused) return;
+
+    // 공룡 물리
+    dino.vy += dino.gravity; dino.y += dino.vy;
+    if(dino.y+dino.h>=H-30){ dino.y=H-30-dino.h; dino.vy=0; dino.grounded=true; }
+
+    // 장애물 생성
+    obstacleTimer++;
+    if(obstacleTimer>Math.max(40, baseSpawnInterval-Math.floor(gameSpeed*3))){ spawnObstacle(); obstacleTimer=0; }
+
+    // 장애물 이동 및 충돌
+    for(let i=obstacles.length-1;i>=0;i--){
+      const ob=obstacles[i]; ob.x+=ob.vx;
+      if(ob.x+ob.w<0) obstacles.splice(i,1);
+      const rect={x:dino.x, y:dino.y, w:dino.w, h:dino.h};
+      if(rect.x<ob.x+ob.w && rect.x+rect.w>ob.x && rect.y<ob.y+ob.h && rect.y+rect.h>ob.y){
+        running=false; if(score>best){ best=score; localStorage.setItem('dino_best',best); bestEl.textContent=best; }
+        setTimeout(()=>alert('게임오버! 점수:'+score),50);
+      }
+    }
+
+    // 점수 및 속도 증가
+    score++; scoreEl.textContent=score;
+    speedIncreaseTimer++;
+    if(speedIncreaseTimer>250){
+      speedIncreaseTimer=0;
+      gameSpeed+=0.2;
+      obstacles.forEach(o=>o.vx=-gameSpeed);
+      console.log('속도',gameSpeed,'점수',score);
+    }
+  }
+
+  function render(){
+    ctx.fillStyle='#1b2b36'; ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='#12262b'; ctx.fillRect(0,H-30,W,30);
+
+    obstacles.forEach(ob=>{ ctx.fillStyle='#ff6b6b'; ctx.fillRect(ob.x,ob.y,ob.w,ob.h); });
+
+    ctx.fillStyle='#ffd166'; ctx.fillRect(dino.x,dino.y,dino.w,dino.h);
+
+    ctx.fillStyle='#fff'; ctx.font='16px Arial';
+    ctx.fillText('점수:'+score,12,22); ctx.fillText('최고:'+best,W-100,22);
+  }
+
+  function loop(){ update(); render(); loopId = requestAnimationFrame(loop); }
+
+  startBtn.addEventListener('click', resetGame);
+  pauseBtn.addEventListener('click',()=>{ if(!running) return; paused=!paused; pauseBtn.textContent=paused?'재개':'일시정지'; });
+
+})();
+</script>
+</body>
+</html>

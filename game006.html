@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8">
+    <title>🐍 뱀 게임</title>
+    <style>
+      :root {
+        --bg1: #08121a;
+        --bg2: #0b2430;
+        --accent: #ffb86b;
+        --danger: #ff6b6b;
+      }
+
+      body {
+        margin: 0;
+        padding: 0;
+        background: linear-gradient(var(--bg1), var(--bg2));
+        color: #f8f8f2;
+        text-align: center;
+        font-family: "Arial", sans-serif;
+      }
+
+      h1 {
+        margin-top: 20px;
+        color: var(--accent);
+        text-shadow: 2px 2px 6px rgba(0,0,0,0.6);
+      }
+
+      p {
+        margin: 5px 0 15px;
+        font-size: 18px;
+      }
+
+      canvas {
+        background: #1a1a1a;
+        border: 3px solid var(--accent);
+        border-radius: 10px;
+        display: block;
+        margin: 20px auto;
+        box-shadow: 0 0 20px rgba(0,0,0,0.6);
+      }
+
+      #score {
+        font-size: 20px;
+        color: var(--accent);
+        margin-top: 10px;
+      }
+
+      #status {
+        margin: 10px 0;
+        font-size: 18px;
+        color: #ccc;
+      }
+
+      #startButton {
+        padding: 10px 20px;
+        font-size: 16px;
+        cursor: pointer;
+        border: none;
+        border-radius: 8px;
+        background-color: var(--accent);
+        color: #222;
+        font-weight: bold;
+        transition: 0.2s;
+      }
+      #startButton:hover {
+        background-color: #ffd28a;
+      }
+
+      #rankings {
+        margin-top: 20px;
+        background: rgba(255,255,255,0.05);
+        border-radius: 10px;
+        display: inline-block;
+        padding: 15px 25px;
+        text-align: left;
+      }
+
+      #rankings h2 {
+        color: var(--accent);
+        margin-top: 0;
+      }
+
+      #rankings ol {
+        padding-left: 20px;
+      }
+
+      #rankings li {
+        margin: 5px 0;
+        font-size: 16px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🐍 뱀 게임 (Snake Game)</h1>
+    <p>방향키로 뱀을 움직이세요!</p>
+
+    <canvas id="game" width="400" height="400"></canvas>
+
+    <p id="score">점수: 0</p>
+    <div id="status">시작 버튼을 누르세요!</div>  
+    <button id="startButton">게임 시작</button>
+
+    <div id="rankings">
+      <h2>🏆 최고 기록 (Top 5)</h2>
+      <ol id="scoreList"></ol>
+    </div>
+        <div class="btn">
+      <a href="index.html">
+        <p>홈으로 가기</p>
+      </a>
+    </div>
+
+    <script>
+      const canvas = document.getElementById("game");
+      const ctx = canvas.getContext("2d");
+
+      const box = 20;
+      const canvasSize = 20;
+      let snake, direction, food, score, startTime, game;
+
+      document.addEventListener("keydown", e => {
+        if (e.key === "ArrowUp" && direction !== "DOWN") direction = "UP";
+        else if (e.key === "ArrowDown" && direction !== "UP") direction = "DOWN";
+        else if (e.key === "ArrowLeft" && direction !== "RIGHT") direction = "LEFT";
+        else if (e.key === "ArrowRight" && direction !== "LEFT") direction = "RIGHT";
+      });
+
+      document.getElementById("startButton").addEventListener("click", () => {
+        if (game) clearInterval(game); 
+
+        snake = [{ x: 9 * box, y: 9 * box }];
+        direction = "";
+        food = {
+          x: Math.floor(Math.random() * canvasSize) * box,
+          y: Math.floor(Math.random() * canvasSize) * box
+        };
+        score = 0;
+        startTime = Date.now();
+
+        document.getElementById("score").textContent = "점수: 0";
+        document.getElementById("status").textContent = "게임 진행 중...";
+        document.getElementById("rankings").style.display = "none";
+
+        game = setInterval(draw, 100);
+      });
+
+      function draw() {
+        let now = Date.now();
+        let elapsed = (now - startTime) / 1000;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#1a1a1a";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        for (let i = 0; i < snake.length; i++) {
+          ctx.fillStyle = i === 0 ? "#50fa7b" : "green";
+          ctx.fillRect(snake[i].x, snake[i].y, box, box);
+        }
+
+        ctx.fillStyle = "red";
+        ctx.fillRect(food.x, food.y, box, box);
+
+        let headX = snake[0].x;
+        let headY = snake[0].y;
+
+        if (direction === "UP") headY -= box;
+        else if (direction === "DOWN") headY += box;
+        else if (direction === "LEFT") headX -= box;
+        else if (direction === "RIGHT") headX += box;
+
+        if (
+          elapsed > 2 && (
+            headX < 0 || headX >= canvas.width ||
+            headY < 0 || headY >= canvas.height ||
+            snake.some(segment => segment.x === headX && segment.y === headY)
+          )
+        ) {
+          endGame();
+          return;
+        }
+
+        let newHead = { x: headX, y: headY };
+        if (headX === food.x && headY === food.y) {
+          score++;
+          document.getElementById("score").textContent = "점수: " + score;
+          food = {
+            x: Math.floor(Math.random() * canvasSize) * box,
+            y: Math.floor(Math.random() * canvasSize) * box
+          };
+        } else {
+          snake.pop();
+        }
+
+        snake.unshift(newHead);
+      }
+
+      function endGame() {
+        clearInterval(game);
+        const name = prompt("이름을 입력하세요!") || "익명";
+        saveScore(name, score);
+        document.getElementById("status").textContent = `🎉 ${name}님 ${score}개 맞췄어요!`;
+        showRankings();
+        document.getElementById("rankings").style.display = "block";
+      }
+
+      function saveScore(name, score) {
+        const saved = JSON.parse(localStorage.getItem("typingScores") || "[]");
+        saved.push({ name, score });
+        saved.sort((a, b) => b.score - a.score);
+        localStorage.setItem("typingScores", JSON.stringify(saved.slice(0, 5)));
+      }
+
+      function showRankings() {
+        const saved = JSON.parse(localStorage.getItem("typingScores") || "[]");
+        const list = document.getElementById("scoreList");
+        list.innerHTML = "";
+        
+        saved.forEach((item) => {
+          const li = document.createElement("li");
+          li.textContent = `${item.name} - ${item.score}개`;
+          list.appendChild(li);
+        });
+      }
+
+      document.getElementById("rankings").style.display = "none";
+      showRankings();
+    </script>
+  </body>
+</html>

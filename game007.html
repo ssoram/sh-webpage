@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>🦖 네온 오목</title>
+<style>
+  :root {
+    --bg1: #08121a;
+    --bg2: #0b2430;
+    --accent: #ffb86b;
+    --danger: #ff6b6b;
+    --grid: #1a3a4a;
+  }
+
+  body {
+    margin: 0;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: radial-gradient(circle at center, var(--bg1), var(--bg2));
+    font-family: "Noto Sans KR", sans-serif;
+    color: #fff;
+    overflow: hidden;
+  }
+
+  .container {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 50px;
+    animation: fadeIn 1s ease-out;
+  }
+
+  /* 보드 */
+  .board {
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+    background: rgba(20, 40, 50, 0.9);
+    border: 2px solid var(--accent);
+    border-radius: 20px;
+    box-shadow: 0 0 20px var(--accent);
+  }
+
+  .row {
+    display: flex;
+  }
+
+  .cell {
+    width: 35px;
+    height: 35px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    z-index: 1;
+    cursor: pointer;
+  }
+
+  /* 교차선 */
+  .cell::before, .cell::after {
+    content: "";
+    position: absolute;
+    background: var(--grid);
+    z-index: 0;
+  }
+
+  .cell::before {
+    left: 50%;
+    height: 1px;
+    width: 100%;
+    transform: translateX(-50%);
+  }
+
+  .cell::after {
+    top: 50%;
+    width: 1px;
+    height: 100%;
+    transform: translateY(-50%);
+  }
+
+  /* 돌 */
+  .stone {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    position: relative;
+    z-index: 2;
+    transition: transform 0.15s ease;
+  }
+  .stone.black {
+    background: #000;
+    box-shadow: 0 0 10px #000;
+  }
+  .stone.white {
+    background: #fff;
+    box-shadow: 0 0 10px #fff;
+  }
+  .stone.placed {
+    transform: scale(1.2);
+    animation: drop 0.15s ease-out;
+  }
+
+  /* 오른쪽 패널 */
+  .info-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: rgba(15, 25, 35, 0.85);
+    padding: 20px 30px;
+    border-radius: 15px;
+    box-shadow: 0 0 20px var(--accent);
+  }
+
+  h2 {
+    color: var(--accent);
+    text-shadow: 0 0 10px var(--accent);
+  }
+
+  .turn-indicator {
+    margin: 10px 0;
+    font-size: 18px;
+    color: #ffb86b;
+  }
+
+  .button-container {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  button {
+    background: linear-gradient(135deg, var(--accent), var(--danger));
+    border: none;
+    color: #fff;
+    font-weight: bold;
+    padding: 10px 18px;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 0 10px var(--accent);
+  }
+
+  button:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 20px var(--danger);
+  }
+
+  table {
+    border-collapse: collapse;
+    color: #fff;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  th, td {
+    border: 1px solid var(--grid);
+    padding: 8px 12px;
+  }
+
+  th {
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: scale(0.9); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  @keyframes drop {
+    0% { transform: scale(0); }
+    100% { transform: scale(1.2); }
+  }
+</style>
+</head>
+<body>
+  <div class="container">
+    <div id="board" class="board"></div>
+
+    <div class="info-panel">
+      <h2>🦖 네온 오목</h2>
+      <div class="turn-indicator" id="turn">현재: ⚫ Black</div>
+      <div class="button-container">
+        <button onclick="Game.reset()">게임 초기화</button>
+        <button onclick="Game.requestUndo()">취소 요청</button>
+      </div>
+      <table>
+        <thead>
+          <tr><th></th><th>⚫ Black</th><th>⚪ White</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>점수</td><td id="score-black">0</td><td id="score-white">0</td></tr>
+          <tr><td>취소 요청</td><td id="req-black">0</td><td id="req-white">0</td></tr>
+          <tr><td>취소 사용</td><td id="use-black">0</td><td id="use-white">0</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+      <button>
+      <a href="index.html">
+        <p>홈으로 가기</p>
+      </a>
+    </button>
+
+  <script>
+  const Game = {
+    size: 15,
+    board: [],
+    history: [],
+    current: "Black",
+    previous: "White",
+    score: { Black: 0, White: 0 },
+    undo: { Black: {req: 0, use: 0}, White: {req: 0, use: 0} },
+
+    init() {
+      this.reset();
+    },
+
+    reset() {
+      this.board = Array(this.size).fill().map(()=>Array(this.size).fill(""));
+      this.history = [];
+      this.current = "Black";
+      this.previous = "White";
+      this.render();
+    },
+
+    render() {
+      const boardEl = document.getElementById("board");
+      boardEl.innerHTML = "";
+
+      for (let i=0; i<this.size; i++) {
+        const row = document.createElement("div");
+        row.className = "row";
+        for (let j=0; j<this.size; j++) {
+          const cell = document.createElement("div");
+          cell.className = "cell";
+          if (this.board[i][j]) {
+            const stone = document.createElement("div");
+            stone.className = `stone ${this.board[i][j].toLowerCase()} placed`;
+            cell.appendChild(stone);
+          }
+          cell.onclick = () => this.place(i, j);
+          row.appendChild(cell);
+        }
+        boardEl.appendChild(row);
+      }
+
+      document.getElementById("score-black").textContent = this.score.Black;
+      document.getElementById("score-white").textContent = this.score.White;
+      document.getElementById("req-black").textContent = this.undo.Black.req;
+      document.getElementById("req-white").textContent = this.undo.White.req;
+      document.getElementById("use-black").textContent = this.undo.Black.use;
+      document.getElementById("use-white").textContent = this.undo.White.use;
+
+      document.getElementById("turn").textContent = `현재: ${this.current === "Black" ? "⚫ Black" : "⚪ White"}`;
+    },
+
+    place(i, j) {
+      if (this.board[i][j]) return;
+      this.board[i][j] = this.current;
+      this.history.push({i, j});
+
+      if (this.checkWin(i, j)) {
+        alert(`🎉 ${this.current} 승리!`);
+        this.score[this.current]++;
+        this.reset();
+        return;
+      }
+
+      [this.previous, this.current] = [this.current, this.previous];
+      this.render();
+    },
+
+    checkWin(i, j) {
+      return ["-1,0","0,-1","-1,-1","-1,1"].some(dir => {
+        const [dr, dc] = dir.split(",").map(Number);
+        return this.countLine(i, j, dr, dc) >= 5;
+      });
+    },
+
+    countLine(r, c, dr, dc) {
+      let cnt = 1;
+      for (let d=1; d<5; d++) if (this.inRange(r+d*dr, c+d*dc) && this.board[r+d*dr][c+d*dc]===this.current) cnt++; else break;
+      for (let d=1; d<5; d++) if (this.inRange(r-d*dr, c-d*dc) && this.board[r-d*dr][c-d*dc]===this.current) cnt++; else break;
+      return cnt;
+    },
+
+    inRange(r,c){ return r>=0 && r<this.size && c>=0 && c<this.size; },
+
+    requestUndo() {
+      const allow = confirm(`${this.previous}님, ${this.current}의 취소 요청을 허락하시겠습니까?`);
+      this.undo[this.current].req++;
+      if (allow) {
+        this.undo[this.current].use++;
+        this.undoMove();
+      } else alert("취소가 거절되었습니다.");
+      this.render();
+    },
+
+    undoMove() {
+      if (this.history.length === 0) return;
+      const last = this.history.pop();
+      this.board[last.i][last.j] = "";
+      [this.current, this.previous] = [this.previous, this.current];
+    }
+  };
+
+  Game.init();
+  </script>
+</body>
+</html>
+

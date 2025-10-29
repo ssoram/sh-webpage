@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>퉷트리스</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            background: #1b2b36;
+            font-family: Arial, sans-serif;
+            color: #ffd166;
+        }
+        
+        .game-container {
+            text-align: center;
+            background: #0b2430;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+        }
+        
+        h1 {
+            margin: 0 0 10px;
+            font-size: 24px;
+            color: #ffd166;
+        }
+        
+        canvas {
+            border: 2px solid #ffd166;
+            background: #12262b;
+            border-radius: 6px;
+        }
+        
+        .score {
+            font-size: 20px;
+            margin: 10px 0;
+            color: #ffd166;
+        }
+        
+        .controls {
+            margin-top: 15px;
+            font-size: 14px;
+            color: #cbd5e1;
+        }
+        
+        .start-btn {
+            padding: 10px 20px;
+            background: #ffd166;
+            color: #102029;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 10px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            transition: 0.2s;
+        }
+        
+        .start-btn:hover {
+            background: #ffea8a;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>퉷트리스</h1>
+        <div class="score">점수: <span id="score">0</span></div>
+        <canvas id="canvas"></canvas>
+        <div class="controls">
+            <button class="start-btn" onclick="startGame()">게임 시작</button>
+            <p>← → : 이동 | ↓ : 빠르게 | ↑ : 회전</p>
+        </div>
+    </div>
+        <div class="start-btn">
+      <a href="index.html">
+        <p>홈으로 가기</p>
+      </a>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const scoreElement = document.getElementById('score');
+        
+        const COLS = 10;
+        const ROWS = 20;
+        const BLOCK = 24;
+
+        canvas.width = COLS * BLOCK;
+        canvas.height = ROWS * BLOCK;
+        
+        let board = [];
+        let score = 0;
+        let gameRunning = false;
+        let currentPiece = null;
+        let dropInterval = 1000;
+        let lastDropTime = 0;
+        
+        const pieces = [
+            [[1,1,1,1]], 
+            [[1,1],[1,1]], 
+            [[0,1,0],[1,1,1]],
+            [[1,0],[1,0],[1,1]]
+        ];
+        
+        const colors = ['#ff6b6b', '#ffd166', '#6bcfff', '#8aff80'];
+        
+        function initBoard() {
+            board = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+        }
+        
+        function createPiece() {
+            const index = Math.floor(Math.random() * pieces.length);
+            return {
+                shape: pieces[index],
+                x: Math.floor(COLS / 2) - Math.floor(pieces[index][0].length / 2),
+                y: 0,
+                color: index
+            };
+        }
+    
+        function collision(piece, dx = 0, dy = 0) {
+            for (let r = 0; r < piece.shape.length; r++) {
+                for (let c = 0; c < piece.shape[r].length; c++) {
+                    if (piece.shape[r][c]) {
+                        let newX = piece.x + c + dx;
+                        let newY = piece.y + r + dy;
+                        
+                        if (newX < 0 || newX >= COLS || newY >= ROWS) return true;
+                        if (newY >= 0 && board[newY][newX]) return true;
+                    }
+                }
+            }
+            return false;
+        }
+        
+        function movePiece(dx, dy) {
+            if (!collision(currentPiece, dx, dy)) {
+                currentPiece.x += dx;
+                currentPiece.y += dy;
+                return true;
+            }
+            return false;
+        }
+        
+        function rotatePiece() {
+            const rotated = currentPiece.shape[0].map((_, i) =>
+                currentPiece.shape.map(row => row[i]).reverse()
+            );
+            const original = currentPiece.shape;
+            currentPiece.shape = rotated;
+
+            if (collision(currentPiece)) {
+                if (!collision(currentPiece, -1, 0)) {
+                    currentPiece.x -= 1;
+                } else if (!collision(currentPiece, 1, 0)) {
+                    currentPiece.x += 1;
+                } else {
+                    currentPiece.shape = original;
+                }
+            }
+        }
+        
+        function placePiece() {
+            for (let r = 0; r < currentPiece.shape.length; r++) {
+                for (let c = 0; c < currentPiece.shape[r].length; c++) {
+                    if (currentPiece.shape[r][c]) {
+                        let x = currentPiece.x + c;
+                        let y = currentPiece.y + r;
+                        if (y >= 0) board[y][x] = currentPiece.color + 1;
+                    }
+                }
+            }
+        }        
+
+        function clearLines() {
+            let linesCleared = 0;
+            for (let r = ROWS - 1; r >= 0; r--) {
+                if (board[r].every(cell => cell !== 0)) {
+                    board.splice(r, 1);
+                    board.unshift(Array(COLS).fill(0));
+                    linesCleared++;
+                    r++;
+                }
+            }
+            if (linesCleared > 0) {
+                score += linesCleared * 100;
+                scoreElement.textContent = score;
+            }
+        }
+        
+        function draw() {
+            ctx.fillStyle = '#12262b';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            for (let r = 0; r < ROWS; r++) {
+                for (let c = 0; c < COLS; c++) {
+                    if (board[r][c]) {
+                        ctx.fillStyle = colors[board[r][c] - 1];
+                        ctx.fillRect(c * BLOCK, r * BLOCK, BLOCK - 2, BLOCK - 2);
+                    }
+                }
+            }
+            
+            if (currentPiece) {
+                ctx.fillStyle = colors[currentPiece.color];
+                for (let r = 0; r < currentPiece.shape.length; r++) {
+                    for (let c = 0; c < currentPiece.shape[r].length; c++) {
+                        if (currentPiece.shape[r][c]) {
+                            ctx.fillRect(
+                                (currentPiece.x + c) * BLOCK,
+                                (currentPiece.y + r) * BLOCK,
+                                BLOCK - 2, BLOCK - 2
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    
+        document.addEventListener('keydown', (e) => {
+            if (!gameRunning) return;
+            switch (e.key) {
+                case 'ArrowLeft':
+                    movePiece(-1, 0);
+                    break;
+                case 'ArrowRight':
+                    movePiece(1, 0);
+                    break;
+                case 'ArrowDown':
+                    if (movePiece(0, 1)) {
+                        score += 1;
+                        scoreElement.textContent = score;
+                    }
+                    break;
+                case 'ArrowUp':
+                    rotatePiece();
+                    break;
+            }
+            draw();
+        });
+        
+        function update(time = 0) {
+            if (!gameRunning) return;
+
+            if (time - lastDropTime > dropInterval) {
+                if (!movePiece(0, 1)) {
+                    placePiece();
+                    clearLines();
+                    currentPiece = createPiece();
+
+                    if (collision(currentPiece)) {
+                        gameOver();
+                        return;
+                    }
+                }
+                lastDropTime = time;
+            }
+            draw();
+            requestAnimationFrame(update);
+        }
+        
+        function startGame() {
+            initBoard();
+            score = 0;
+            scoreElement.textContent = score;
+            currentPiece = createPiece();
+            gameRunning = true;
+            lastDropTime = 0;
+            update();
+        }
+        
+        function gameOver() {
+            gameRunning = false;
+            alert('게임 오버! 점수: ' + score);
+        }
+        
+        initBoard();
+        draw();
+    </script>
+</body>
+</html>

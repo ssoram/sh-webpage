@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>🧠 기억력 카드 게임 4x4</title>
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #1b2b36;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+    }
+
+    h1 {
+      margin-top: 30px;
+      font-size: 22px;
+      color: #ffd166;
+    }
+
+    p {
+      color: #cbd5e1;
+      margin-top: 6px;
+    }
+
+    #gameBoard {
+      display: grid;
+      grid-template-columns: repeat(4, 80px);
+      grid-gap: 12px;
+      justify-content: center;
+      margin-top: 20px;
+      padding: 16px;
+      background: #0b2430;
+      border-radius: 10px;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+    }
+
+    .card {
+      width: 80px;
+      height: 80px;
+      font-size: 32px;
+      background-color: #12262b;
+      border: 2px solid #0b2430;
+      border-radius: 10px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+      color: #ffd166;
+      transition: background 0.2s;
+    }
+
+    .card:hover {
+      background-color: #193640;
+    }
+
+    .matched {
+      background-color: #2ecc71;
+      color: #102029;
+      font-weight: bold;
+      cursor: default;
+    }
+
+    #status {
+      font-size: 18px;
+      margin-top: 16px;
+      color: #ffd166;
+    }
+
+    #resetBtn {
+      margin-top: 16px;
+      padding: 8px 16px;
+      font-size: 16px;
+      cursor: pointer;
+      background: #ffd166;
+      color: #102029;
+      border: none;
+      border-radius: 6px;
+      font-weight: 700;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+
+    #resetBtn:active {
+      transform: translateY(1px);
+    }
+  </style>
+</head>
+<body>
+  <h1>🧠 기억력 카드 게임 4x4</h1>
+  <p>3초 동안 기억한 뒤, 같은 그림을 맞춰보세요!</p>
+  <div id="gameBoard"></div>
+  <h3 id="status"></h3>
+  <button id="resetBtn" onclick="createBoard()">다시 시작</button>
+      <div class="btn">
+      <a href="index.html">
+        <p>홈으로 가기</p>
+      </a>
+    </div>
+
+  <script>
+    const emojis = ["🍎", "🍌", "🍇", "🍉", "🍒", "🍍", "🥝", "🍓"];
+    let firstCard = null;
+    let secondCard = null;
+    let lock = false;
+    let matchedCount = 0;
+
+    function shuffle(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+    }
+
+    function createBoard() {
+      const board = document.getElementById("gameBoard");
+      const status = document.getElementById("status");
+      board.innerHTML = "";
+      status.textContent = "";
+      firstCard = null;
+      secondCard = null;
+      lock = true;
+      matchedCount = 0;
+
+      const allEmojis = [...emojis, ...emojis];
+      shuffle(allEmojis);
+
+      allEmojis.forEach((emoji, index) => {
+        const card = document.createElement("div");
+        card.classList.add("card");
+        card.dataset.emoji = emoji;
+        card.dataset.index = index;
+        card.innerText = emoji;
+
+        card.addEventListener("click", () => {
+          if (lock || card.classList.contains("matched") || card === firstCard) return;
+
+          card.innerText = card.dataset.emoji;
+
+          if (!firstCard) {
+            firstCard = card;
+          } else {
+            secondCard = card;
+            lock = true;
+
+            if (firstCard.dataset.emoji === secondCard.dataset.emoji) {
+              firstCard.classList.add("matched");
+              secondCard.classList.add("matched");
+              matchedCount++;
+              if (matchedCount === emojis.length) {
+                status.textContent = "🎉 모두 맞췄어요!";
+              }
+              resetTurn();
+            } else {
+              setTimeout(() => {
+                firstCard.innerText = "❓";
+                secondCard.innerText = "❓";
+                resetTurn();
+              }, 800);
+            }
+          }
+        });
+
+        board.appendChild(card);
+      });
+
+      setTimeout(() => {
+        document.querySelectorAll(".card").forEach(card => {
+          card.innerText = "❓";
+        });
+        lock = false;
+      }, 3000);
+    }
+
+    function resetTurn() {
+      firstCard = null;
+      secondCard = null;
+      lock = false;
+    }
+
+    createBoard();
+  </script>
+</body>
+</html>

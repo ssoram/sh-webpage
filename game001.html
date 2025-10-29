@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>벽돌깨기! (공룡 러너 스타일)</title>
+  <style>
+    html,body{height:100%;margin:0;font-family:Arial,sans-serif;background:#1b2b36;color:#fff;display:flex;align-items:center;justify-content:center}
+    .wrap{width:560px;max-width:95%;background:#0b2430;border-radius:8px;padding:12px;box-shadow:0 8px 20px rgba(0,0,0,0.5)}
+    header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;font-size:14px}
+    h1{font-size:16px;margin:0}
+    .info{font-size:14px;color:#ffd166}
+    canvas{background:#1b2b36;display:block;width:100%;border:3px solid #0b2430;border-radius:6px}
+    .controls{display:flex;gap:8px;margin-top:10px;justify-content:flex-start;align-items:center}
+    .btn{background:#ffd166;color:#102029;padding:6px 10px;border-radius:6px;border:none;cursor:pointer;font-weight:700}
+    .btn:active{transform:translateY(1px)}
+    .hint{font-size:13px;color:#9aa6b2;margin-top:6px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>벽돌깨기!</h1>
+      <div class="info">점수: <span id="score">0</span> | 목숨: <span id="lives">5</span></div>
+    </header>
+
+    <canvas id="game" width="520" height="360"></canvas>
+
+    <div class="controls">
+      <button class="btn" id="startBtn">게임 시작</button>
+    </div>
+    <div class="hint">마우스로 이동 / 좌우 화살표로 이동</div>
+  </div>
+
+    <div class="btn">
+      <a href="index.html">
+        <p>홈으로 가기</p>
+      </a>
+    </div>
+
+    </div>
+  <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const scoreEl = document.getElementById('score');
+    const livesEl = document.getElementById('lives');
+    const startBtn = document.getElementById('startBtn');
+    const W = canvas.width, H = canvas.height;
+
+    const ballRadius=7;
+    let ball={x:W/2,y:-60,dx:2,dy:-2,radius:ballRadius};
+
+    const paddle={width:90,height:10,x:(W-90)/2,y:H-30,speed:6};
+
+    const brick={rows:5,cols:8,w:56,h:14,padding:8,offsetTop:40,offsetLeft:18};
+    let bricks=[];
+
+    let score=0,lives=5,running=false;
+
+    function initBricks(random=false){
+      bricks=[];
+      for(let r=0;r<brick.rows;r++){
+        bricks[r]=[];
+        for(let c=0;c<brick.cols;c++){
+          let alive=random?(Math.random()>0.5?1:0):1;
+          bricks[r][c]={x:0,y:0,status:alive};
+        }
+      }
+    };
+
+    function resetGame(){
+      score=0;lives=5;
+      scoreEl.textContent=score;
+      livesEl.textContent=lives;
+      ball={x:W/2,y:H-60,dx:2,dy:-2,radius:ballRadius};
+      paddle.x=(W-paddle.width)/2;
+      initBricks();
+    };
+
+    function drawBall(){
+      ctx.beginPath();
+      ctx.arc(ball.x,ball.y,ball.radius,0,Math.PI*2);
+      ctx.fillStyle='#ffd166'; // 공룡 러너 Dino 색
+      ctx.fill();
+      ctx.closePath();
+    };
+
+    function drawPaddle(){
+      ctx.beginPath();
+      ctx.rect(paddle.x,paddle.y,paddle.width,paddle.height);
+      ctx.fillStyle='#2ecc71'; // 공룡 러너에서 땅/장애물 느낌
+      ctx.fill();
+      ctx.closePath();
+    };
+
+    function drawBricks(){
+      for(let r=0;r<brick.rows;r++){
+        for(let c=0;c<brick.cols;c++){
+          const b=bricks[r][c];
+          if(b.status){
+            const x=c*(brick.w+brick.padding)+brick.offsetLeft;
+            const y=r*(brick.h+brick.padding)+brick.offsetTop;
+            b.x=x;b.y=y;
+            ctx.fillStyle='#ff6b6b'; // 장애물 색상
+            ctx.fillRect(x,y,brick.w,brick.h);
+          }
+        }
+      }
+    };
+
+    function collisionDetection(){
+      for(let r=0;r<brick.rows;r++){
+        for(let c=0;c<brick.cols;c++){
+          const b=bricks[r][c];
+          if(b.status){
+            if(ball.x>b.x && ball.x<b.x+brick.w &&
+              ball.y>b.y && ball.y<b.y+brick.h){
+              ball.dy=-ball.dy;
+              b.status=0;
+              score+=10;
+              scoreEl.textContent=score;
+              checkLevelClear();
+            }
+          }
+        }
+      }
+      if(ball.y+ball.radius>paddle.y &&
+        ball.x>paddle.x && ball.x<paddle.x+paddle.width){
+        ball.dy=-ball.dy;
+      }
+    };
+
+    function checkLevelClear(){
+      let allCleared=true;
+      for(let r=0;r<brick.rows;r++){
+        for(let c=0;c<brick.cols;c++){
+          if(bricks[r][c].status===1){allCleared=false;break;}
+        }
+      }
+      if(allCleared){
+        score+=100;
+        scoreEl.textContent=score;
+        initBricks(true);
+        ball.x=W/2; ball.y=H-60; ball.dx=2; ball.dy=-2;
+        paddle.x=(W-paddle.width)/2;
+        alert("레벨 업! 새로운 벽돌 패턴 등장 🎉");
+      }
+    };
+
+    let left=false,right=false;
+    document.addEventListener('keydown',e=>{if(e.key==='ArrowLeft') left=true;if(e.key==='ArrowRight') right=true;});
+    document.addEventListener('keyup',e=>{if(e.key==='ArrowLeft') left=false;if(e.key==='ArrowRight') right=false;});
+    document.addEventListener('mousemove',e=>{const rect=canvas.getBoundingClientRect(); paddle.x=e.clientX-rect.left-paddle.width/2;});
+
+    function update(){
+      if(!running) return;
+      if(left) paddle.x-=paddle.speed;
+      if(right) paddle.x+=paddle.speed;
+      if(paddle.x<0)paddle.x=0;
+      if(paddle.x+paddle.width>W)paddle.x=W-paddle.width;
+
+      ball.x+=ball.dx;
+      ball.y+=ball.dy;
+
+      if(ball.x+ball.radius>W || ball.x-ball.radius<0) ball.dx=-ball.dx;
+      if(ball.y-ball.radius<0) ball.dy=-ball.dy;
+
+      if(ball.y+ball.radius>H){
+        lives--;
+        livesEl.textContent=lives;
+        if(lives<=0){
+          running=false;
+          alert('게임 오버! 점수: '+score);
+          resetGame();
+        } else {
+          ball={x:W/2,y:H-60,dx:2*(Math.random()>0.5?1:-1),dy:-2,radius:ballRadius};
+          paddle.x=(W-paddle.width)/2;
+        }
+      }
+      collisionDetection();
+    };
+
+    function render(){ctx.clearRect(0,0,W,H); drawBricks(); drawBall(); drawPaddle();}
+    function loop(){update(); render(); if(running) requestAnimationFrame(loop);}
+
+    startBtn.addEventListener('click',()=>{resetGame(); if(!running){running=true; requestAnimationFrame(loop);}});
+
+    resetGame(); render();
+  </script>
+
+</body>
+</html>
